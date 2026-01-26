@@ -117,7 +117,7 @@ void ESPHomeDevice::setup()
 {
   auto &board = Board::GetInstance();
   std::string device_name = board.getDeviceName();
-  esphome::App.pre_setup(device_name, device_name, "", "", __DATE__ ", " __TIME__, false);
+  esphome::App.pre_setup(device_name, device_name, "", __DATE__ ", " __TIME__, false);
 
   // 预留组件内存空间
   esphome::App.reserve_components(7);
@@ -128,7 +128,6 @@ void ESPHomeDevice::setup()
   api_apiserver_id->set_component_source("api");
   esphome::App.register_component(api_apiserver_id);
   api_apiserver_id->set_port(6053);
-  api_apiserver_id->set_password("123698745");
   api_apiserver_id->set_reboot_timeout(0);
   api_apiserver_id->set_batch_delay(100);
   //api_apiserver_id->noise_pref_
