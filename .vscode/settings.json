@@ -1,0 +1,19 @@
+{
+  "idf.portWin": "COM3",
+  "idf.espIdfPathWin": "C:\\Users\\gongy\\esp\\v5.5.2\\esp-idf",
+  "idf.toolsPathWin": "C:\\Users\\gongy\\.espressif",
+  "idf.pythonInstallPath": "C:\\Users\\gongy\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
+  "idf.openOcdConfigs": [
+    "board/esp32s3-bridge.cfg"
+  ],
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3"
+  },
+  "clangd.path": "C:\\Users\\gongy\\.espressif\\tools\\esp-clang\\esp-19.1.2_20250312\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=C:\\Users\\gongy\\.espressif\\tools\\xtensa-esp-elf\\esp-14.2.0_20251107\\xtensa-esp-elf\\bin\\xtensa-esp32s3-elf-gcc.exe",
+    "--compile-commands-dir=j:\\Xiaozhi\\xiaozhi-esp32-main\\build"
+  ],
+  "idf.flashType": "UART"
+}
