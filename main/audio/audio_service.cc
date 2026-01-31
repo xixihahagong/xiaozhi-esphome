@@ -16,6 +16,8 @@
 #endif
 
 #define TAG "AudioService"
+// 新增远程音频缓冲阈值（可根据需求调整）
+#define REMOTE_AUDIO_MIN_BUFFER_SIZE (16000 * 2 * 0.1) // 100ms 16bit/单声道
 
 
 AudioService::AudioService() {
@@ -256,44 +258,85 @@ void AudioService::AudioInputTask() {
     ESP_LOGW(TAG, "Audio input task stopped");
 }
 
+// -------------------------- 改造AudioOutputTask --------------------------
 void AudioService::AudioOutputTask() {
     while (true) {
         std::unique_lock<std::mutex> lock(audio_queue_mutex_);
-        audio_queue_cv_.wait(lock, [this]() { return !audio_playback_queue_.empty() || service_stopped_; });
+        // 等待条件：原有播放队列非空 / 服务停止 / 远程播放有数据且运行中
+        audio_queue_cv_.wait(lock, [this]() { 
+            return !audio_playback_queue_.empty() || 
+                   service_stopped_ || 
+                   (remote_playback_running_ && !remote_playback_paused_ && has_buffered_data()); 
+        });
+
         if (service_stopped_) {
             break;
         }
 
-        auto task = std::move(audio_playback_queue_.front());
-        audio_playback_queue_.pop_front();
-        audio_queue_cv_.notify_all();
-        lock.unlock();
+        // 优先级1：处理原有音频播放队列（语音交互）
+        if (!audio_playback_queue_.empty()) {
+            auto task = std::move(audio_playback_queue_.front());
+            audio_playback_queue_.pop_front();
+            audio_queue_cv_.notify_all();
+            lock.unlock();
 
-        if (!codec_->output_enabled()) {
-            esp_timer_stop(audio_power_timer_);
-            esp_timer_start_periodic(audio_power_timer_, AUDIO_POWER_CHECK_INTERVAL_MS * 1000);
-            codec_->EnableOutput(true);
-        }
-        codec_->OutputData(task->pcm);
+            // 原有播放逻辑（保留不变）
+            if (!codec_->output_enabled()) {
+                esp_timer_stop(audio_power_timer_);
+                esp_timer_start_periodic(audio_power_timer_, AUDIO_POWER_CHECK_INTERVAL_MS * 1000);
+                codec_->EnableOutput(true);
+            }
+            codec_->OutputData(task->pcm);
 
-        if (wait_tts_stop_ && audio_playback_queue_.empty() && callbacks_.on_playback_end) {
-            callbacks_.on_playback_end();
-            wait_tts_stop_ = false;
-        }
-
-        /* Update the last output time */
-        last_output_time_ = std::chrono::steady_clock::now();
-        debug_statistics_.playback_count++;
+            if (wait_tts_stop_ && audio_playback_queue_.empty() && callbacks_.on_playback_end) {
+                callbacks_.on_playback_end();
+                wait_tts_stop_ = false;
+            }
+            last_output_time_ = std::chrono::steady_clock::now();
+            debug_statistics_.playback_count++;
 
 #if CONFIG_USE_SERVER_AEC
-        /* Record the timestamp for server AEC */
-        if (task->timestamp > 0) {
-            lock.lock();
-            timestamp_queue_.push_back(task->timestamp);
-        }
+            if (task->timestamp > 0) {
+                lock.lock();
+                timestamp_queue_.push_back(task->timestamp);
+            }
 #endif
-    }
+            lock.lock();
+        }
+        // 优先级2：处理远程音频播放（Speaker）
+        else if (remote_playback_running_ && !remote_playback_paused_ && has_buffered_data()) {
+            lock.unlock(); // 释放原有队列锁，避免阻塞
+            std::lock_guard<std::mutex> remote_lock(remote_audio_mutex_);
 
+            // 每次输出OPUS_FRAME_DURATION_MS时长的PCM数据（与原有逻辑对齐）
+            const int samples_per_frame = OPUS_FRAME_DURATION_MS * codec_->output_sample_rate() / 1000;
+            const size_t bytes_per_frame = samples_per_frame * sizeof(int16_t) * codec_->output_channels();
+
+            // 截取一帧数据
+            std::vector<int16_t> pcm_frame;
+            if (remote_audio_buffer_.size() >= samples_per_frame) {
+                pcm_frame.assign(remote_audio_buffer_.begin(), remote_audio_buffer_.begin() + samples_per_frame);
+                remote_audio_buffer_.erase(remote_audio_buffer_.begin(), remote_audio_buffer_.begin() + samples_per_frame);
+                remote_audio_buffer_size_ -= pcm_frame.size() * sizeof(int16_t);
+            } else {
+                // 数据不足时填充静音
+                pcm_frame.resize(samples_per_frame, 0);
+                remote_playback_running_ = false; // 数据耗尽，停止远程播放
+            }
+
+            // 输出到Codec（与原有逻辑一致）
+            if (!codec_->output_enabled()) {
+                esp_timer_stop(audio_power_timer_);
+                esp_timer_start_periodic(audio_power_timer_, AUDIO_POWER_CHECK_INTERVAL_MS * 1000);
+                codec_->EnableOutput(true);
+            }
+            codec_->OutputData(pcm_frame);
+            last_output_time_ = std::chrono::steady_clock::now();
+
+            // 触发Speaker的音频输出回调
+            this->audio_output_callback_.call(pcm_frame.size(), esp_timer_get_time());
+        }
+    }
     ESP_LOGW(TAG, "Audio output task stopped");
 }
 
@@ -688,4 +731,76 @@ bool AudioService::IsAfeWakeWord() {
 #else
     return false;
 #endif
+}
+
+// -------------------------- 实现Speaker接口 --------------------------
+// 播放远程PCM数据（Speaker核心接口）
+size_t AudioService::play(const uint8_t *data, size_t length) {
+    if (service_stopped_ || !remote_playback_running_ || remote_playback_paused_) {
+        return 0; // 服务停止/远程播放未启动/暂停时，拒绝写入
+    }
+
+    std::lock_guard<std::mutex> lock(remote_audio_mutex_);
+    // 转换uint8_t[]到int16_t[]（PCM 16bit，小端）
+    const size_t sample_count = length / sizeof(int16_t);
+    const int16_t *pcm_data = reinterpret_cast<const int16_t *>(data);
+
+    // 追加到远程音频缓冲
+    remote_audio_buffer_.insert(remote_audio_buffer_.end(), pcm_data, pcm_data + sample_count);
+    remote_audio_buffer_size_ += length;
+
+    // 唤醒音频输出任务
+    audio_queue_cv_.notify_all();
+
+    return length; // 返回实际写入的字节数
+}
+
+// 启动远程音频播放（Speaker接口）
+void AudioService::start() {
+    std::lock_guard<std::mutex> lock(remote_audio_mutex_);
+    if (!remote_playback_running_) {
+        remote_playback_running_ = true;
+        remote_playback_paused_ = false;
+        this->state_ = esphome::speaker::STATE_RUNNING;
+        audio_queue_cv_.notify_all(); // 唤醒输出任务
+        ESP_LOGD(TAG, "Remote speaker playback started");
+    }
+}
+
+// 停止远程音频播放（Speaker接口）
+void AudioService::stop() {
+    std::lock_guard<std::mutex> lock(remote_audio_mutex_);
+    if (remote_playback_running_) {
+        remote_playback_running_ = false;
+        remote_playback_paused_ = false;
+        remote_audio_buffer_.clear();
+        remote_audio_buffer_size_ = 0;
+        this->state_ = esphome::speaker::STATE_STOPPED;
+        ESP_LOGD(TAG, "Remote speaker playback stopped");
+    }
+}
+
+// 检查远程音频缓冲是否有数据（Speaker接口）
+bool AudioService::has_buffered_data() const {
+    std::lock_guard<std::mutex> lock(remote_audio_mutex_);
+    return remote_audio_buffer_size_ > 0;
+}
+
+// 设置远程播放暂停状态（可选增强）
+void AudioService::set_pause_state(bool pause_state) {
+    std::lock_guard<std::mutex> lock(remote_audio_mutex_);
+    remote_playback_paused_ = pause_state;
+    if (pause_state) {
+        this->state_ = esphome::speaker::STATE_STOPPING;
+    } else if (remote_playback_running_) {
+        this->state_ = esphome::speaker::STATE_RUNNING;
+        audio_queue_cv_.notify_all(); // 恢复播放，唤醒输出任务
+    }
+    ESP_LOGD(TAG, "Remote speaker pause state: %s", pause_state ? "paused" : "resumed");
+}
+
+// 获取远程播放暂停状态（可选增强）
+bool AudioService::get_pause_state() const {
+    std::lock_guard<std::mutex> lock(remote_audio_mutex_);
+    return remote_playback_paused_;
 }

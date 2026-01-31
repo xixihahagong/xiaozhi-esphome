@@ -77,7 +77,6 @@ public:
 
 AskAndExecuteCommandText *ask_and_execute_command_text_id;
 
-
 ESPHomeDevice &ESPHomeDevice::GetInstance()
 {
   static ESPHomeDevice instance;
@@ -118,6 +117,7 @@ void ESPHomeDevice::setup()
   auto &board = Board::GetInstance();
   std::string device_name = board.getDeviceName();
   esphome::App.pre_setup(device_name, device_name, "", __DATE__ ", " __TIME__, false);
+  speaker = &(Application::GetInstance().GetAudioService());
 
   // 预留组件内存空间
   esphome::App.reserve_components(7);
@@ -136,6 +136,8 @@ void ESPHomeDevice::setup()
   preferences_intervalsyncer_id->set_write_interval(60000);
   preferences_intervalsyncer_id->set_component_source("preferences");
   esphome::App.register_component(preferences_intervalsyncer_id);
+
+
 
   // 注册音箱唤醒按钮
   wakeup_button_id = new WakeupButton();
@@ -194,7 +196,6 @@ void ESPHomeDevice::setup()
   ask_and_execute_command_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
   ask_and_execute_command_text_id->publish_state("");
 
-
   esphome::App.setup();
 }
 
@@ -227,12 +228,14 @@ void ESPHomeDevice::setOutputVolume(uint8_t volume)
   auto &board = Board::GetInstance();
   auto codec = board.GetAudioCodec();
   this->updateIsInSleepModeInterval();
+  ESP_LOGI(TAG, "Before setvolume");
   if (_sleepMode && _isInSleepModeInterval)
   {
     codec->SetOutputVolume(volume > 20 ? 20 : volume);
   }else
   {
-    codec->SetOutputVolume(volume);
+//    codec->SetOutputVolume(volume);
+      speaker->set_volume(volume*1.0);
   }
   ESP_LOGI(TAG, "Set output volume to %d", volume);
 }

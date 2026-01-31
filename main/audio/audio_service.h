@@ -22,6 +22,7 @@
 #include "processors/audio_debugger.h"
 #include "wake_word.h"
 #include "protocol.h"
+#include "speaker.h"
 
 
 /*
@@ -80,7 +81,7 @@ struct DebugStatistics {
     uint32_t playback_count = 0;
 };
 
-class AudioService {
+class AudioService : public esphome::speaker::Speaker {
 public:
     AudioService();
     ~AudioService();
@@ -113,6 +114,21 @@ public:
 
     void SetWaitTtsStop() { wait_tts_stop_ = true; }
     bool IsAudioPlaybackQueueEmpty() { return audio_playback_queue_.empty(); }
+
+    // 实现Speaker纯虚函数
+    size_t play(const uint8_t *data, size_t length) override;
+    void start() override;
+    void stop() override;
+    bool has_buffered_data() const override;
+
+    // 重写Speaker的pause相关函数（可选，增强控制）
+    void set_pause_state(bool pause_state) override;
+    bool get_pause_state() const override;
+
+    void set_volume(float volume) {
+        codec_->SetOutputVolume((int)volume);
+        volume_ = volume;
+    }
 
 private:
     AudioCodec* codec_ = nullptr;
@@ -161,6 +177,14 @@ private:
     void PushTaskToEncodeQueue(AudioTaskType type, std::vector<int16_t>&& pcm);
     void SetDecodeSampleRate(int sample_rate, int frame_duration);
     void CheckAndUpdateAudioPowerState();
+
+    // 新增远程音频播放相关变量
+    mutable std::mutex remote_audio_mutex_;          // 远程音频队列锁
+    std::vector<int16_t> remote_audio_buffer_;// 远程PCM缓冲（int16_t对应16bit PCM）
+    bool remote_playback_running_ = false;   // 远程播放状态
+    bool remote_playback_paused_ = false;    // 远程播放暂停标记
+    size_t remote_audio_buffer_size_ = 0;    // 已缓冲的远程音频字节数
+    esphome::audio::AudioStreamInfo remote_audio_info_; // 远程音频格式信息
 };
 
 #endif

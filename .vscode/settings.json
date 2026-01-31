@@ -15,5 +15,6 @@
     "--query-driver=C:\\Users\\gongy\\.espressif\\tools\\xtensa-esp-elf\\esp-14.2.0_20251107\\xtensa-esp-elf\\bin\\xtensa-esp32s3-elf-gcc.exe",
     "--compile-commands-dir=j:\\Xiaozhi\\xiaozhi-esp32-main\\build"
   ],
-  "idf.flashType": "UART"
+  "idf.flashType": "UART",
+  "C_Cpp.errorSquiggles": "disabled"
 }

@@ -37,6 +37,7 @@ set(SOURCES "audio/audio_codec.cc"
             "main.cc"
             "esphome/esphome_device.cc"
             "esphome/sleep_mode_time_interval.cc"
+#            "esphome/mediaplayer.cc"
             )
 
 set(INCLUDE_DIRS "." "display" "display/lvgl_display" "display/lvgl_display/jpg" "audio" "protocols" "esphome")

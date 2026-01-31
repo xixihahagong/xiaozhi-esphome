@@ -3,10 +3,13 @@
 #include <stdio.h>
 #include <string>
 #include "sleep_mode_time_interval.h"
+#include "audio_service.h"
 
 class ESPHomeDevice
 {
     public:
+
+        AudioService* speaker = nullptr;
 
         ESPHomeDevice();
 

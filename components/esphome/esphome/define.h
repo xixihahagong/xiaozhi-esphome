@@ -3,6 +3,7 @@
 #include "esphome/core/macros.h"
 #define ESPHOME_BOARD "Xiaozhi-Speaker"
 #define ESPHOME_VARIANT "ESP32-S3"
+#define USE_ESP_IDF
 #define USE_API
 #define USE_API_SERVICES
 #define USE_API_PLAINTEXT
@@ -17,3 +18,5 @@
 #define USE_SOCKET_SELECT_SUPPORT
 #define USE_TEXT
 #define USE_WIFI
+//#define USE_MEDIA_PLAYER
+#define USE_SPEAKER

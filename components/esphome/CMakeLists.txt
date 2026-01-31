@@ -40,6 +40,15 @@ set(ESPHOME_SOURCES
     "esphome/components/number/number_traits.cpp"
     "esphome/components/text/text.cpp"
     "esphome/components/text/text_call.cpp"
+    "esphome/components/audio/audio.cpp"
+ #   "esphome/components/speaker/media_player/speaker_media_player.cpp"
+ #   "esphome/components/speaker/media_player/audio_pipeline.cpp"
+ #   "esphome/components/media_player/media_player.cpp"
+ #   "esphome/components/audio/wav_decoder.cpp"
+ #   "esphome/components/audio/audio_transfer_buffer.cpp"
+#    "esphome/components/audio/audio_resampler.cpp"
+#    "esphome/components/audio/audio_reader.cpp"
+#    "esphome/components/audio/audio_decoder.cpp"
 )
 
 # Collect all include directories
@@ -57,13 +66,17 @@ set(ESPHOME_INCLUDE_DIRS
     "esphome/components/switch"
     "esphome/components/number"
     "esphome/components/text"
+    "esphome/components/speaker"
+    "esphome/components/audio"
+ #   "esphome/components/media_player"
+ #   "esphome/components/speaker/media_player"
 )
 
 # Register the component with ESP-IDF
 idf_component_register(
     SRCS ${ESPHOME_SOURCES}
     INCLUDE_DIRS ${ESPHOME_INCLUDE_DIRS}
-    PRIV_REQUIRES lwip esp_wifi noise-c wpa_supplicant nvs_flash efuse esp_driver_gpio esp_ringbuf esp_driver_uart esp_driver_usb_serial_jtag 78__esp-wifi-connect 
+    PRIV_REQUIRES lwip esp_wifi noise-c wpa_supplicant nvs_flash efuse esp_driver_gpio esp_ringbuf esp_driver_uart esp_driver_usb_serial_jtag 78__esp-wifi-connect esp_http_client mbedtls
 )
 
 # 编译选项
