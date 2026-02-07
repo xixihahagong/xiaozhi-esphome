@@ -1,4 +1,5 @@
 #include "audio_service.h"
+#include "media_player.h"
 #include <esp_log.h>
 #include <cstring>
 
@@ -272,7 +273,7 @@ void AudioService::AudioOutputTask() {
         if (service_stopped_) {
             break;
         }
-
+        
         // 优先级1：处理原有音频播放队列（语音交互）
         if (!audio_playback_queue_.empty()) {
             auto task = std::move(audio_playback_queue_.front());
@@ -690,7 +691,7 @@ void AudioService::CheckAndUpdateAudioPowerState() {
         codec_->EnableInput(false);
     }
     if (output_elapsed > AUDIO_POWER_TIMEOUT_MS && codec_->output_enabled()) {
-        codec_->EnableOutput(false);
+//        codec_->EnableOutput(false);
     }
     if (!codec_->input_enabled() && !codec_->output_enabled()) {
         esp_timer_stop(audio_power_timer_);
@@ -739,6 +740,8 @@ size_t AudioService::play(const uint8_t *data, size_t length) {
     if (service_stopped_ || !remote_playback_running_ || remote_playback_paused_) {
         return 0; // 服务停止/远程播放未启动/暂停时，拒绝写入
     }
+    
+    ESP_LOGI(TAG, "Remote speaker queque playback started");
 
     std::lock_guard<std::mutex> lock(remote_audio_mutex_);
     // 转换uint8_t[]到int16_t[]（PCM 16bit，小端）
@@ -757,13 +760,14 @@ size_t AudioService::play(const uint8_t *data, size_t length) {
 
 // 启动远程音频播放（Speaker接口）
 void AudioService::start() {
+    ESP_LOGI(TAG, "Remote speaker playback started");
     std::lock_guard<std::mutex> lock(remote_audio_mutex_);
     if (!remote_playback_running_) {
         remote_playback_running_ = true;
         remote_playback_paused_ = false;
         this->state_ = esphome::speaker::STATE_RUNNING;
         audio_queue_cv_.notify_all(); // 唤醒输出任务
-        ESP_LOGD(TAG, "Remote speaker playback started");
+        ESP_LOGI(TAG, "Remote speaker playback started");
     }
 }
 

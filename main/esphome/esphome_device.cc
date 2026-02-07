@@ -1,4 +1,5 @@
 #include "esphome_device.h"
+#include "audio.h"
 #include "esphome.h"
 #include "board.h"
 #include "display.h"
@@ -6,7 +7,11 @@
 #include "assets/lang_config.h"
 #include "settings.h"
 
+
 #define TAG "ESPHomeDevice"
+
+using namespace esphome::speaker;
+using namespace esphome::aispeaker;
 
 esphome::api::APIServer *api_apiserver_id;
 esphome::preferences::IntervalSyncer *preferences_intervalsyncer_id;
@@ -77,6 +82,9 @@ public:
 
 AskAndExecuteCommandText *ask_and_execute_command_text_id;
 
+AISpeaker *speaker;
+SpeakerMediaPlayer *media_player;
+
 ESPHomeDevice &ESPHomeDevice::GetInstance()
 {
   static ESPHomeDevice instance;
@@ -115,12 +123,13 @@ void ESPHomeDevice::initProperties()
 void ESPHomeDevice::setup()
 {
   auto &board = Board::GetInstance();
+  auto codec = board.GetAudioCodec();
   std::string device_name = board.getDeviceName();
   esphome::App.pre_setup(device_name, device_name, "", __DATE__ ", " __TIME__, false);
-  speaker = &(Application::GetInstance().GetAudioService());
+//  speaker->start();
 
   // 预留组件内存空间
-  esphome::App.reserve_components(7);
+  esphome::App.reserve_components(12);
 
   initProperties();
 
@@ -196,12 +205,58 @@ void ESPHomeDevice::setup()
   ask_and_execute_command_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
   ask_and_execute_command_text_id->publish_state("");
 
+  //注册speaker
+  speaker = new AISpeaker();
+  esphome::App.register_component(speaker);
+  speaker->set_codec_(codec);
+  speaker->set_audio_stream_info(esphome::audio::AudioStreamInfo(16,codec->output_channels(),codec->output_sample_rate()));
+  speaker->set_buffer_duration(500);
+
+  //注册媒体播放器
+  media_player = new SpeakerMediaPlayer();
+  // esphome::App.register_component(&mxSpeaker);
+  // esphome::App.register_component(&sc1Speaker);
+  // esphome::App.register_component(&sc2Speaker);
+  // mxSpeaker.add_source_speaker(&sc1Speaker);
+  // mxSpeaker.add_source_speaker(&sc2Speaker);
+  // mxSpeaker.set_output_speaker(speaker);
+  // mxSpeaker.setup();
+  // sc1Speaker.set_buffer_duration(100);
+  // sc1Speaker.set_timeout(5000);
+  // sc1Speaker.set_audio_stream_info(esphome::audio::AudioStreamInfo(16, 1, 16000)); 
+  // sc1Speaker.set_parent(&mxSpeaker);
+  // sc1Speaker.setup();
+  // sc2Speaker.set_buffer_duration(100);
+  // sc2Speaker.set_timeout(5000);
+  // sc2Speaker.set_audio_stream_info(esphome::audio::AudioStreamInfo(16, 1, 16000));
+  // sc2Speaker.set_parent(&mxSpeaker);
+  // sc2Speaker.setup();
+  media_player->set_object_id("xiaozhi");
+  esphome::App.register_media_player(media_player);
+  media_player->set_volume_initial(50.0f);
+  media_player->set_volume_min(0.0f);
+  media_player->set_volume_max(100.0f);
+  media_player->set_volume_increment(5.0f);
+  media_player->set_buffer_size(250000);
+  media_player->set_task_stack_in_psram(true);
+  media_player->set_announcement_speaker(speaker);
+  media_player->set_announcement_format(esphome::media_player::MediaPlayerSupportedFormat{
+      .format = "mp3",
+      .sample_rate = 24000,
+      .num_channels = 1,
+      .purpose = esphome::media_player::MediaPlayerFormatPurpose::PURPOSE_ANNOUNCEMENT,
+      .sample_bytes = 2,
+  });
+  media_player->set_playlist_delay_ms(esphome::speaker::AudioPipelineType::MEDIA, 60);
+  media_player->publish_state();
+  esphome::App.register_component(media_player);
   esphome::App.setup();
 }
 
 void ESPHomeDevice::loop()
 {
   esphome::App.loop();
+  
 }
 
 // void ESPHomeDevice::setNoisePsk(const std::string noise_psk)

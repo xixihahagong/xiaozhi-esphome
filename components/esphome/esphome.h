@@ -1,5 +1,10 @@
 #pragma once
 #include "esphome/core/macros.h"
+//#include "esphome/components/mixer/speaker/mixer_speaker.h"
+#include "esphome/components/speaker/media_player/speaker_media_player.h"
+#include "esphome/components/speaker/media_player/audio_pipeline.h"
+#include "esphome/components/media_player/media_player.h"
+#include "esphome/define.h"
 #include "esphome/components/api/api_connection.h"
 #include "esphome/components/api/api_frame_helper.h"
 #include "esphome/components/api/api_noise_context.h"

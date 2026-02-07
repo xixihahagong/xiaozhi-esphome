@@ -124,7 +124,6 @@ void SpeakerMediaPlayer::watch_media_commands_() {
   if (!this->is_ready()) {
     return;
   }
-
   MediaCallCommand media_command;
 
   if (xQueueReceive(this->media_control_command_queue_, &media_command, 0) == pdTRUE) {

@@ -1,0 +1,13 @@
+description: A collection of libraries and functions that are useful for playing audio
+  on ESP32 devices
+files:
+  exclude:
+  - .clang-format
+  - .gitignore
+  - library.json
+repository: git://github.com/esphome-libs/esp-audio-libs.git
+repository_info:
+  commit_sha: 81d3358638f782338c38478d877fe2fbf88759ae
+  path: .
+url: https://github.com/esphome/esp-audio-libs
+version: 2.0.3
