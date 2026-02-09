@@ -23,6 +23,7 @@
 #include "wake_word.h"
 #include "protocol.h"
 #include "speaker.h"
+#include "media_player.h"
 
 
 /*

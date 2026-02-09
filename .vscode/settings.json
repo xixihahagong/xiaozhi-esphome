@@ -16,5 +16,6 @@
     "--compile-commands-dir=j:\\Xiaozhi\\xiaozhi-esp32-main\\build"
   ],
   "idf.flashType": "UART",
-  "C_Cpp.errorSquiggles": "disabled"
+  "C_Cpp.errorSquiggles": "disabled",
+  "idf.currentSetup": "C:\\Users\\gongy\\esp\\v5.5.2\\esp-idf"
 }

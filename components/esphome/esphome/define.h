@@ -18,5 +18,7 @@
 #define USE_SOCKET_SELECT_SUPPORT
 #define USE_TEXT
 #define USE_WIFI
-//#define USE_MEDIA_PLAYER
+#define USE_MEDIA_PLAYER
 #define USE_SPEAKER
+#define USE_LOGGER
+#define USE_AUDIO_MP3_SUPPORT

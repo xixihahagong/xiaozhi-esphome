@@ -39,6 +39,9 @@ public:
     inline bool input_enabled() const { return input_enabled_; }
     inline bool output_enabled() const { return output_enabled_; }
 
+    virtual int Read(int16_t* dest, int samples) = 0;
+    virtual int Write(const int16_t* data, int samples) = 0;
+
 protected:
     i2s_chan_handle_t tx_handle_ = nullptr;
     i2s_chan_handle_t rx_handle_ = nullptr;
@@ -53,9 +56,6 @@ protected:
     int output_channels_ = 1;
     int output_volume_ = 70;
     float input_gain_ = 0.0;
-
-    virtual int Read(int16_t* dest, int samples) = 0;
-    virtual int Write(const int16_t* data, int samples) = 0;
 };
 
 #endif // _AUDIO_CODEC_H
